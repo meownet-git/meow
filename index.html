@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Dark - Realtime Text</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        waDark: {
+                            bg: '#0b141a',
+                            sidebar: '#111b21',
+                            card: '#202c33',
+                            border: '#2a3942',
+                            input: '#2a3942',
+                            accent: '#0b84ff',
+                            accentHover: '#0066cc',
+                            textPrimary: '#e9edef',
+                            textSecondary: '#8696a0',
+                            msgOut: '#005c4b',
+                            msgIn: '#202c33'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b141a;
+            color: #e9edef;
+        }
+        /* Custom Dark Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111b21;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a3942;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374955;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-center items-center bg-waDark-bg">
+
+    <!-- Modal Login / Configuración Firebase -->
+    <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+        <div class="bg-waDark-sidebar w-full max-w-md p-6 sm:p-8 rounded-2xl border border-waDark-border shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 bg-waDark-card rounded-2xl flex items-center justify-center mx-auto mb-3 border border-waDark-border text-waDark-accent">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-bold text-waDark-textPrimary">Iniciar Sesión</h2>
+                <p class="text-waDark-textSecondary text-xs mt-1">Ingresa tu apodo para conectarte en tiempo real</p>
+            </div>
+
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-waDark-textSecondary mb-2">Nombre o Apodo</label>
+                    <input type="text" id="usernameInput" required maxlength="25" placeholder="Ej. Carlos, Usuario1..." class="w-full px-4 py-3 bg-waDark-bg border border-waDark-border rounded-xl text-waDark-textPrimary placeholder-waDark-textSecondary text-sm focus:outline-none focus:border-waDark-accent transition">
+                </div>
+
+                <!-- Toggle para desplegar configuración de Firebase -->
+                <div class="pt-2 border-t border-waDark-border/60">
+                    <button type="button" onclick="toggleFirebaseConfig()" class="text-xs text-waDark-accent hover:underline flex items-center justify-between w-full">
+                        <span>Configuración de Firebase (Opcional)</span>
+                        <svg id="cfgArrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    
+                    <div id="firebaseConfigSection" class="hidden mt-3 space-y-2.5 bg-waDark-bg/60 p-3 rounded-xl border border-waDark-border">
+                        <p class="text-[11px] text-waDark-textSecondary">Ingresa las credenciales de tu consola Firebase Realtime Database para conectar personas reales en distintos dispositivos:</p>
+                        <input type="text" id="cfgApiKey" placeholder="apiKey" class="w-full px-3 py-1.5 bg-waDark-sidebar border border-waDark-border rounded-lg text-xs text-waDark-textPrimary">
+                        <input type="text" id="cfgDbUrl" placeholder="databaseURL (https://tu-app-default-rtdb.firebaseio.com)" class="w-full px-3 py-1.5 bg-waDark-sidebar border border-waDark-border rounded-lg text-xs text-waDark-textPrimary">
+                        <input type="text" id="cfgProjectId" placeholder="projectId" class="w-full px-3 py-1.5 bg-waDark-sidebar border border-waDark-border rounded-lg text-xs text-waDark-textPrimary">
+                        <button type="button" onclick="saveFirebaseConfig()" class="w-full py-1.5 bg-waDark-card hover:bg-waDark-border text-xs text-waDark-textPrimary rounded-lg transition border border-waDark-border">Guardar Credenciales</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full mt-2 py-3 bg-waDark-accent hover:bg-waDark-accentHover text-white font-semibold rounded-xl transition duration-150 text-sm shadow-md">
+                    Entrar al Chat
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la App -->
+    <div id="appContainer" class="hidden w-full h-full max-w-7xl max-h-[100vh] md:max-h-[95vh] md:m-4 bg-waDark-sidebar rounded-none md:rounded-2xl border border-waDark-border/60 shadow-2xl flex overflow-hidden">
+        
+        <!-- Sidebar Izquierda - Lista de Usuarios y Chats -->
+        <div id="sidebar" class="w-full md:w-80 lg:w-96 bg-waDark-sidebar border-r border-waDark-border flex flex-col h-full shrink-0 transition-all duration-200">
+            
+            <!-- Cabecera de Perfil de Usuario -->
+            <div class="p-3.5 bg-waDark-sidebar border-b border-waDark-border flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div id="myAvatar" class="w-9 h-9 rounded-full bg-waDark-card flex items-center justify-center font-bold text-waDark-accent border border-waDark-border text-sm">
+                        <!-- Inicial del usuario -->
+                    </div>
+                    <div>
+                        <h3 id="myUsername" class="font-semibold text-waDark-textPrimary text-sm leading-tight">Usuario</h3>
+                        <span class="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Conectado
+                        </span>
+                    </div>
+                </div>
+                <button onclick="logout()" title="Cerrar Sesión" class="text-waDark-textSecondary hover:text-red-400 p-2 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Búsqueda de Usuarios -->
+            <div class="p-3 bg-waDark-sidebar border-b border-waDark-border/40">
+                <div class="relative">
+                    <input type="text" id="searchInput" oninput="filterUsers()" placeholder="Buscar usuario..." class="w-full pl-9 pr-4 py-2 bg-waDark-bg text-xs text-waDark-textPrimary placeholder-waDark-textSecondary border border-waDark-border/60 rounded-xl focus:outline-none focus:border-waDark-accent/60">
+                    <svg class="w-4 h-4 text-waDark-textSecondary absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Lista de Contactos / Usuarios Activos -->
+            <div id="usersList" class="flex-1 overflow-y-auto divide-y divide-waDark-border/30">
+                <!-- Se llena mediante Javascript -->
+            </div>
+        </div>
+
+        <!-- Área Principal de Conversación -->
+        <div id="chatArea" class="hidden md:flex flex-1 flex-col h-full bg-waDark-bg relative">
+            
+            <!-- Cabecera del Chat Activo - SOLO AVATAR Y NOMBRE (SOLICITUD DEL USUARIO) -->
+            <div id="activeChatHeader" class="p-3.5 bg-waDark-sidebar border-b border-waDark-border flex items-center justify-between z-10">
+                <div class="flex items-center space-x-3">
+                    <button onclick="showSidebarMobile()" class="md:hidden text-waDark-textSecondary hover:text-white p-1 mr-1">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <!-- Logo / Avatar del usuario -->
+                    <div id="targetAvatar" class="w-10 h-10 rounded-full bg-waDark-card border border-waDark-border flex items-center justify-center text-waDark-accent font-bold text-base">
+                        ?
+                    </div>
+                    <!-- Nombre del usuario únicamente -->
+                    <h2 id="targetUsername" class="font-semibold text-waDark-textPrimary text-base">Selecciona un chat</h2>
+                </div>
+            </div>
+
+            <!-- Pantalla vacía cuando no hay chat seleccionado -->
+            <div id="noChatSelected" class="absolute inset-0 flex flex-col items-center justify-center bg-waDark-bg text-center p-6 z-20">
+                <div class="w-16 h-16 rounded-2xl bg-waDark-sidebar flex items-center justify-center text-waDark-textSecondary mb-4 border border-waDark-border">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-waDark-textPrimary mb-1">WhatsApp Dark Realtime</h3>
+                <p class="text-waDark-textSecondary text-xs max-w-xs">Selecciona un usuario de la lista de la izquierda para comenzar a enviar mensajes de texto en tiempo real.</p>
+            </div>
+
+            <!-- Panel de Mensajes -->
+            <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- Mensajes -->
+            </div>
+
+            <!-- Entrada de Texto -->
+            <div class="p-3 bg-waDark-sidebar border-t border-waDark-border">
+                <form id="messageForm" class="flex items-center gap-2">
+                    <input type="text" id="messageInput" autocomplete="off" placeholder="Escribe un mensaje de texto..." class="flex-1 bg-waDark-bg border border-waDark-border text-waDark-textPrimary text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-waDark-accent/70 transition placeholder-waDark-textSecondary">
+                    <button type="submit" class="bg-waDark-accent hover:bg-waDark-accentHover text-white p-3 rounded-xl transition duration-150 flex items-center justify-center shadow-md">
+                        <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MÓDULOS DE FIREBASE V11 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, off, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        // Variables de estado
+        let app = null;
+        let db = null;
+        let currentUser = null;
+        let activeTargetUser = null;
+        let activeRoomId = null;
+        let activeMessagesListener = null;
+        let usersListener = null;
+        let allUsers = [];
+
+        // Inicializar listeners al cargar ventana
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedConfig();
+            checkSession();
+
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('messageForm').addEventListener('submit', handleSendMessage);
+        });
+
+        // Alternar visualización del panel de config de Firebase
+        window.toggleFirebaseConfig = function() {
+            const sec = document.getElementById('firebaseConfigSection');
+            const arrow = document.getElementById('cfgArrow');
+            sec.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-180');
+        };
+
+        // Guardar configuración manual de Firebase
+        window.saveFirebaseConfig = function() {
+            const apiKey = document.getElementById('cfgApiKey').value.trim();
+            const databaseURL = document.getElementById('cfgDbUrl').value.trim();
+            const projectId = document.getElementById('cfgProjectId').value.trim();
+
+            if (!apiKey || !databaseURL) {
+                alert("Por favor ingresa al menos la apiKey y el databaseURL de Firebase.");
+                return;
+            }
+
+            const config = { apiKey, databaseURL, projectId };
+            localStorage.setItem('wa_dark_firebase_cfg', JSON.stringify(config));
+            alert("Credenciales guardadas correctamente.");
+        };
+
+        function loadSavedConfig() {
+            const saved = localStorage.getItem('wa_dark_firebase_cfg');
+            if (saved) {
+                try {
+                    const cfg = JSON.parse(saved);
+                    document.getElementById('cfgApiKey').value = cfg.apiKey || '';
+                    document.getElementById('cfgDbUrl').value = cfg.databaseURL || '';
+                    document.getElementById('cfgProjectId').value = cfg.projectId || '';
+                } catch(e) {}
+            }
+        }
+
+        // Inicializar conexión con Firebase
+        function initFirebase() {
+            const savedCfg = localStorage.getItem('wa_dark_firebase_cfg');
+            if (savedCfg) {
+                try {
+                    const firebaseConfig = JSON.parse(savedCfg);
+                    app = initializeApp(firebaseConfig);
+                    db = getDatabase(app);
+                    console.log("Firebase inicializado con credenciales personalizadas.");
+                    return true;
+                } catch (e) {
+                    console.error("Error al inicializar Firebase con config guardada:", e);
+                }
+            }
+            return false;
+        }
+
+        // Manejar Inicio de Sesión
+        function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById('usernameInput').value.trim();
+            if (!name) return;
+
+            currentUser = {
+                id: 'usr_' + name.toLowerCase().replace(/\s+/g, '_'),
+                name: name,
+                initial: name.charAt(0).toUpperCase()
+            };
+
+            localStorage.setItem('wa_dark_user', JSON.stringify(currentUser));
+            startApp();
+        }
+
+        function checkSession() {
+            const savedUser = localStorage.getItem('wa_dark_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                startApp();
+            } else {
+                document.getElementById('loginModal').classList.remove('hidden');
+            }
+        }
+
+        window.logout = function() {
+            if (confirm("¿Deseas cerrar sesión?")) {
+                localStorage.removeItem('wa_dark_user');
+                location.reload();
+            }
+        };
+
+        // Iniciar la aplicación
+        function startApp() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+
+            document.getElementById('myUsername').innerText = currentUser.name;
+            document.getElementById('myAvatar').innerText = currentUser.initial;
+
+            const isFirebaseReady = initFirebase();
+
+            if (isFirebaseReady && db) {
+                // Registrar presencia de usuario en Firebase
+                const userRef = ref(db, 'users/' + currentUser.id);
+                set(userRef, {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    initial: currentUser.initial,
+                    lastSeen: Date.now()
+                });
+
+                // Escuchar lista de usuarios en tiempo real
+                listenUsersRealtime();
+            } else {
+                // Modo demostración local si no hay credenciales de Firebase configuradas
+                loadDemoUsers();
+            }
+        }
+
+        // Escuchar usuarios conectados vía Firebase
+        function listenUsersRealtime() {
+            const usersRef = ref(db, 'users');
+            usersListener = onValue(usersRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    allUsers = Object.values(data).filter(u => u.id !== currentUser.id);
+                } else {
+                    allUsers = [];
+                }
+                renderUsersList(allUsers);
+            });
+        }
+
+        // Usuarios simulados de prueba si no hay Firebase configurado
+        function loadDemoUsers() {
+            allUsers = [
+                { id: 'usr_sala_global', name: 'Chat General / Global', initial: '🌐' },
+                { id: 'usr_maria', name: 'María López', initial: 'M' },
+                { id: 'usr_juan', name: 'Juan Pérez', initial: 'J' }
+            ];
+            renderUsersList(allUsers);
+        }
+
+        // Renderizar lista de usuarios en el sidebar
+        function renderUsersList(users) {
+            const container = document.getElementById('usersList');
+            if (users.length === 0) {
+                container.innerHTML = `
+                    <div class="p-4 text-center text-xs text-waDark-textSecondary">
+                        Esperando a otros usuarios en línea...
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = users.map(u => {
+                const isActive = activeTargetUser && activeTargetUser.id === u.id;
+                return `
+                    <div onclick="selectUser('${u.id}')" class="p-3.5 flex items-center gap-3 cursor-pointer hover:bg-waDark-card/50 transition ${isActive ? 'bg-waDark-card border-l-4 border-waDark-accent' : ''}">
+                        <div class="w-10 h-10 rounded-full bg-waDark-bg border border-waDark-border flex items-center justify-center font-bold text-waDark-accent text-sm shrink-0">
+                            ${u.initial}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-sm font-medium text-waDark-textPrimary truncate">${escapeHTML(u.name)}</h4>
+                            <p class="text-[11px] text-waDark-textSecondary truncate">Haz clic para chatear</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.filterUsers = function() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allUsers.filter(u => u.name.toLowerCase().includes(q));
+            renderUsersList(filtered);
+        };
+
+        // Seleccionar usuario para hablar
+        window.selectUser = function(userId) {
+            const target = allUsers.find(u => u.id === userId);
+            if (!target) return;
+
+            activeTargetUser = target;
+
+            // Generar Room ID único alfabético para chat 1 a 1
+            const ids = [currentUser.id, target.id].sort();
+            activeRoomId = `room_${ids[0]}_${ids[1]}`;
+
+            // Actualizar Cabecera - SOLO LOGO/AVATAR Y NOMBRE
+            document.getElementById('targetAvatar').innerText = target.initial;
+            document.getElementById('targetUsername').innerText = target.name;
+
+            document.getElementById('noChatSelected').classList.add('hidden');
+
+            // Ajuste responsivo para móvil
+            const sidebar = document.getElementById('sidebar');
+            const chatArea = document.getElementById('chatArea');
+            sidebar.classList.add('hidden', 'md:flex');
+            chatArea.classList.remove('hidden');
+
+            renderUsersList(allUsers);
+            listenMessagesRealtime();
+        };
+
+        window.showSidebarMobile = function() {
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('chatArea').classList.add('hidden', 'md:flex');
+        };
+
+        // Escuchar mensajes en tiempo real
+        function listenMessagesRealtime() {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            // Cancelar listener anterior si existía
+            if (activeMessagesListener && db) {
+                off(activeMessagesListener);
+            }
+
+            if (db && activeRoomId) {
+                const roomMessagesRef = ref(db, `messages/${activeRoomId}`);
+                activeMessagesListener = onValue(roomMessagesRef, (snapshot) => {
+                    const data = snapshot.val();
+                    const msgList = data ? Object.values(data) : [];
+                    renderMessagesArray(msgList);
+                });
+            } else {
+                // Modo local persistente si no hay Firebase
+                const localData = JSON.parse(localStorage.getItem('wa_dark_local_msgs') || '{}');
+                const msgList = localData[activeRoomId] || [];
+                renderMessagesArray(msgList);
+            }
+        }
+
+        // Enviar Mensaje
+        function handleSendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+
+            if (!text || !activeRoomId) return;
+
+            const newMsg = {
+                id: 'msg_' + Date.now(),
+                senderId: currentUser.id,
+                senderName: currentUser.name,
+                text: text,
+                timestamp: getFormattedTime()
+            };
+
+            if (db) {
+                // Enviar a Firebase Realtime Database
+                const roomMessagesRef = ref(db, `messages/${activeRoomId}`);
+                push(roomMessagesRef, newMsg);
+            } else {
+                // Guardar localmente si no hay servidor activo
+                const localData = JSON.parse(localStorage.getItem('wa_dark_local_msgs') || '{}');
+                if (!localData[activeRoomId]) localData[activeRoomId] = [];
+                localData[activeRoomId].push(newMsg);
+                localStorage.setItem('wa_dark_local_msgs', JSON.stringify(localData));
+                listenMessagesRealtime();
+            }
+
+            input.value = '';
+        }
+
+        // Renderizar conjunto de mensajes
+        function renderMessagesArray(messages) {
+            const container = document.getElementById('messagesContainer');
+            if (messages.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex items-center justify-center">
+                        <span class="text-xs text-waDark-textSecondary bg-waDark-sidebar px-3 py-1.5 rounded-full border border-waDark-border">
+                            No hay mensajes en este chat. Escribe el primero.
+                        </span>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                const isMe = msg.senderId === currentUser.id;
+                return `
+                    <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+                        <div class="max-w-[85%] sm:max-w-[70%] rounded-xl px-3.5 py-2 text-sm shadow-sm ${
+                            isMe 
+                            ? 'bg-waDark-msgOut text-waDark-textPrimary rounded-tr-none' 
+                            : 'bg-waDark-msgIn text-waDark-textPrimary rounded-tl-none border border-waDark-border/40'
+                        }">
+                            <p class="leading-relaxed text-xs sm:text-sm whitespace-pre-wrap">${escapeHTML(msg.text)}</p>
+                            <div class="text-[10px] text-right mt-1 text-waDark-textSecondary flex items-center justify-end gap-1">
+                                <span>${msg.timestamp}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function getFormattedTime() {
+            const now = new Date();
+            return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag));
+        }
+    </script>
+</body>
+</html>
